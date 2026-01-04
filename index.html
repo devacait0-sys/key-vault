@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VIP Access Key</title>
+    <style>
+        body { background: #0f0f0f; color: #00ff00; font-family: sans-serif; text-align: center; padding-top: 100px; }
+        .key-container { border: 2px solid #00ff00; display: inline-block; padding: 40px; border-radius: 15px; }
+        #key { font-size: 3em; font-weight: bold; margin: 20px; color: white; text-shadow: 0 0 10px #00ff00; }
+    </style>
+</head>
+<body>
+    <div class="key-container">
+        <h1>YOUR UNIQUE KEY</h1>
+        <p>Copy this and use the <b>Verify Key</b> button in Discord.</p>
+        <div id="key">Generating...</div>
+        <p><i>This key is valid for ONE use only.</i></p>
+    </div>
+
+    <script>
+        // Paste 50-100 keys from your keys.txt here
+        const keyPool = [
+            "VIP-ALPHA-1234", "VIP-BRAVO-5678", "VIP-CHARLI-9012", 
+            "VIP-DELTA-3456", "VIP-ECHO-7890", "VIP-FOX-1122"
+            // Add as many as you want from your generated list
+        ];
+
+        // This picks a truly random key every time the page is loaded
+        function getUniqueKey() {
+            const randomIndex = Math.floor(Math.random() * keyPool.length);
+            return keyPool[randomIndex];
+        }
+
+        document.getElementById('key').innerText = getUniqueKey();
+    </script>
+</body>
+</html>
