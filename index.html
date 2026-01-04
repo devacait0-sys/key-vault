@@ -1,36 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>VIP Access Key</title>
+    <title>VIP Access</title>
     <style>
-        body { background: #0f0f0f; color: #00ff00; font-family: sans-serif; text-align: center; padding-top: 100px; }
-        .key-container { border: 2px solid #00ff00; display: inline-block; padding: 40px; border-radius: 15px; }
-        #key { font-size: 3em; font-weight: bold; margin: 20px; color: white; text-shadow: 0 0 10px #00ff00; }
+        body { background: #111; color: #0f0; font-family: sans-serif; text-align: center; padding-top: 100px; }
+        #key-box { border: 2px solid #0f0; font-size: 2.5em; padding: 20px; display: inline-block; margin: 20px; color: white; }
     </style>
 </head>
 <body>
-    <div class="key-container">
-        <h1>YOUR UNIQUE KEY</h1>
-        <p>Copy this and use the <b>Verify Key</b> button in Discord.</p>
-        <div id="key">Generating...</div>
-        <p><i>This key is valid for ONE use only.</i></p>
-    </div>
-
+    <h1>YOUR UNIQUE KEY</h1>
+    <div id="key-box">Loading...</div>
     <script>
-        // Paste 50-100 keys from your keys.txt here
-        const keyPool = [
-            "VIP-ALPHA-1234", "VIP-BRAVO-5678", "VIP-CHARLI-9012", 
-            "VIP-DELTA-3456", "VIP-ECHO-7890", "VIP-FOX-1122"
-            // Add as many as you want from your generated list
-        ];
-
-        // This picks a truly random key every time the page is loaded
-        function getUniqueKey() {
-            const randomIndex = Math.floor(Math.random() * keyPool.length);
-            return keyPool[randomIndex];
+        async function fetchKey() {
+            const res = await fetch("https://api.jsonbin.io/v3/b/YOUR_BIN_ID/latest", {
+                headers: { "X-Master-Key": "YOUR_MASTER_KEY" }
+            });
+            const data = await res.json();
+            const keys = data.record.keys;
+            // Pick a random key from the cloud
+            const randomKey = keys[Math.floor(Math.random() * keys.length)];
+            document.getElementById('key-box').innerText = randomKey;
         }
-
-        document.getElementById('key').innerText = getUniqueKey();
+        fetchKey();
     </script>
 </body>
 </html>
