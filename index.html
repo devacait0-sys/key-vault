@@ -2,40 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NSFW.VAULT | Secure Access</title>
-    
     <style>
         :root { --main-color: #00ff00; --bg-color: #050505; }
-        body { background: var(--bg-color); color: var(--main-color); font-family: 'Courier New', monospace; text-align: center; margin: 0; padding-top: 20vh; overflow: hidden; }
-        
-        /* Branding */
-        .header { font-size: 3rem; font-weight: bold; text-transform: uppercase; letter-spacing: 10px; margin-bottom: 30px; text-shadow: 0 0 10px var(--main-color); }
-        
-        /* The Key Box */
-        .vault-container { border: 2px solid var(--main-color); display: inline-block; padding: 60px; position: relative; box-shadow: 0 0 30px rgba(0, 255, 0, 0.2); }
-        #key-display { font-size: 2.5rem; font-weight: bold; letter-spacing: 2px; }
-        
-        /* Status/Error Text */
+        body { background: var(--bg-color); color: var(--main-color); font-family: 'Courier New', monospace; text-align: center; padding-top: 20vh; margin: 0; }
+        .header { font-size: 3rem; font-weight: bold; text-transform: uppercase; letter-spacing: 10px; margin-bottom: 30px; }
+        .vault-container { border: 2px solid var(--main-color); display: inline-block; padding: 60px; box-shadow: 0 0 30px rgba(0, 255, 0, 0.2); }
+        #key-display { font-size: 2.5rem; font-weight: bold; }
         #status-msg { margin-top: 20px; font-size: 0.9rem; color: #888; }
-        .error { color: #ff3333 !important; border-color: #ff3333 !important; }
     </style>
 </head>
 <body>
 
     <div class="header">NSFW.VAULT</div>
 
-    <div class="vault-container" id="container">
-        <div id="key-display">INITIALIZING...</div>
+    <div class="vault-container">
+        <div id="key-display">VERIFYING IP...</div>
     </div>
 
-    <p id="status-msg">Connecting to database...</p>
+    <p id="status-msg">Performing security handshake...</p>
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
     <script>
-        // 1. DATABASE CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyBLLWB60iLX9SE6zCWHKYCvdzP51-fZEo8",
             databaseURL: "https://keysystem-b5fa5-default-rtdb.firebaseio.com/",
@@ -43,55 +33,63 @@
             appId: "1:898842570370:web:6987aeb9e3e50168e20e9b"
         };
 
-        // 2. WAIT FOR PAGE LOAD
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             firebase.initializeApp(firebaseConfig);
             const db = firebase.database();
-            
             const display = document.getElementById('key-display');
             const status = document.getElementById('status-msg');
-            const container = document.getElementById('container');
 
-            async function pullAndPurge() {
+            async function securePull() {
                 try {
+                    // 1. Get the user's public IP address
+                    const ipResponse = await fetch('https://api.ipify.org?format=json');
+                    const ipData = await ipResponse.json();
+                    const userIP = ipData.ip.replace(/\./g, '_'); // Firebase doesn't like dots in keys
+                    const now = Date.now();
+
+                    // 2. Check Database for this IP
+                    const ipRef = db.ref(`vault/user_ips/${userIP}`);
+                    const ipSnapshot = await ipRef.once('value');
+                    
+                    if (ipSnapshot.exists()) {
+                        const lastClaim = ipSnapshot.val().time;
+                        const waitTime = 1 * 60 * 60 * 1000; // 1 Hour in ms
+
+                        if (now - lastClaim < waitTime) {
+                            display.innerText = "ACCESS DENIED";
+                            status.innerText = "IP Locked. One key per hour allowed.";
+                            return;
+                        }
+                    }
+
+                    // 3. If clear, pull new key
                     const availRef = db.ref('vault/available_keys');
                     const pendingRef = db.ref('vault/pending_redemption');
+                    const keySnapshot = await availRef.limitToFirst(1).once('value');
 
-                    // Pull the first key
-                    const snapshot = await availRef.limitToFirst(1).once('value');
-                    
-                    if (snapshot.exists()) {
-                        const id = Object.keys(snapshot.val())[0];
-                        const code = snapshot.val()[id].code;
+                    if (keySnapshot.exists()) {
+                        const id = Object.keys(keySnapshot.val())[0];
+                        const code = keySnapshot.val()[id].code;
 
-                        // Display the key
-                        display.innerText = code;
-                        status.innerText = "Key retrieved. Purging from vault...";
-
-                        // MOVE LOGIC: To pending, then remove from available
-                        await pendingRef.push({ 
-                            code: code, 
-                            claimed_at: Date.now(),
-                            origin: "web_portal"
-                        });
+                        // 4. Update IP log and Purge key
+                        await ipRef.set({ time: now, code: code });
+                        await pendingRef.push({ code: code, claimed_at: now, ip: userIP });
                         await availRef.child(id).remove();
-                        
-                        status.innerText = "One-time use key active. Use Discord to redeem.";
+
+                        display.innerText = code;
+                        status.innerText = "New key issued. Your IP is logged for 1 hour.";
                     } else {
-                        // NO KEYS FOUND
                         display.innerText = "VAULT EMPTY";
-                        status.innerText = "Request admin to run !gen in Discord.";
+                        status.innerText = "Request admin refill in Discord.";
                     }
+
                 } catch (err) {
-                    // CONNECTION OR PERMISSION ERROR
                     display.innerText = "ERROR";
-                    container.classList.add('error');
-                    status.innerText = "Database connection failed: " + err.message;
-                    console.error(err);
+                    status.innerText = "Security check failed: " + err.message;
                 }
             }
 
-            pullAndPurge();
+            securePull();
         });
     </script>
 </body>
