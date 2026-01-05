@@ -1,27 +1,30 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>VIP Access</title>
-    <style>
-        body { background: #111; color: #0f0; font-family: sans-serif; text-align: center; padding-top: 100px; }
-        #key-box { border: 2px solid #0f0; font-size: 2.5em; padding: 20px; display: inline-block; margin: 20px; color: white; }
-    </style>
-</head>
-<body>
-    <h1>YOUR UNIQUE KEY</h1>
-    <div id="key-box">Loading...</div>
-    <script>
-        async function fetchKey() {
-            const res = await fetch("https://api.jsonbin.io/v3/b/YOUR_BIN_ID/latest", {
-                headers: { "X-Master-Key": "YOUR_MASTER_KEY" }
-            });
-            const data = await res.json();
-            const keys = data.record.keys;
-            // Pick a random key from the cloud
-            const randomKey = keys[Math.floor(Math.random() * keys.length)];
-            document.getElementById('key-box').innerText = randomKey;
+<script>
+    // Your specific config from image_587947.png
+    const firebaseConfig = {
+        apiKey: "AIzaSyBLLWB60iLX9SE6zCWHKYCvdzP51-fZEo8",
+        databaseURL: "https://keysystem-b5fa5-default-rtdb.firebaseio.com/",
+        projectId: "keysystem-b5fa5",
+        appId: "1:898842570370:web:6987aeb9e3e50168e20e9b"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    async function getAndPurge() {
+        const availRef = db.ref('vault/available_keys');
+        const pendingRef = db.ref('vault/pending_redemption');
+
+        const snapshot = await availRef.limitToFirst(1).once('value');
+        if (snapshot.exists()) {
+            const id = Object.keys(snapshot.val())[0];
+            const code = snapshot.val()[id].code;
+
+            document.getElementById('display').innerText = code;
+
+            // Move to Pending & Remove from Available
+            await pendingRef.push({ code: code, timestamp: Date.now() });
+            await availRef.child(id).remove();
         }
-        fetchKey();
-    </script>
-</body>
-</html>
+    }
+    window.onload = getAndPurge;
+</script>
