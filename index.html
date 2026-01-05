@@ -1,30 +1,98 @@
-<script>
-    // Your specific config from image_587947.png
-    const firebaseConfig = {
-        apiKey: "AIzaSyBLLWB60iLX9SE6zCWHKYCvdzP51-fZEo8",
-        databaseURL: "https://keysystem-b5fa5-default-rtdb.firebaseio.com/",
-        projectId: "keysystem-b5fa5",
-        appId: "1:898842570370:web:6987aeb9e3e50168e20e9b"
-    };
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSFW.VAULT | Secure Access</title>
+    
+    <style>
+        :root { --main-color: #00ff00; --bg-color: #050505; }
+        body { background: var(--bg-color); color: var(--main-color); font-family: 'Courier New', monospace; text-align: center; margin: 0; padding-top: 20vh; overflow: hidden; }
+        
+        /* Branding */
+        .header { font-size: 3rem; font-weight: bold; text-transform: uppercase; letter-spacing: 10px; margin-bottom: 30px; text-shadow: 0 0 10px var(--main-color); }
+        
+        /* The Key Box */
+        .vault-container { border: 2px solid var(--main-color); display: inline-block; padding: 60px; position: relative; box-shadow: 0 0 30px rgba(0, 255, 0, 0.2); }
+        #key-display { font-size: 2.5rem; font-weight: bold; letter-spacing: 2px; }
+        
+        /* Status/Error Text */
+        #status-msg { margin-top: 20px; font-size: 0.9rem; color: #888; }
+        .error { color: #ff3333 !important; border-color: #ff3333 !important; }
+    </style>
+</head>
+<body>
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    <div class="header">NSFW.VAULT</div>
 
-    async function getAndPurge() {
-        const availRef = db.ref('vault/available_keys');
-        const pendingRef = db.ref('vault/pending_redemption');
+    <div class="vault-container" id="container">
+        <div id="key-display">INITIALIZING...</div>
+    </div>
 
-        const snapshot = await availRef.limitToFirst(1).once('value');
-        if (snapshot.exists()) {
-            const id = Object.keys(snapshot.val())[0];
-            const code = snapshot.val()[id].code;
+    <p id="status-msg">Connecting to database...</p>
 
-            document.getElementById('display').innerText = code;
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-            // Move to Pending & Remove from Available
-            await pendingRef.push({ code: code, timestamp: Date.now() });
-            await availRef.child(id).remove();
-        }
-    }
-    window.onload = getAndPurge;
-</script>
+    <script>
+        // 1. DATABASE CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyBLLWB60iLX9SE6zCWHKYCvdzP51-fZEo8",
+            databaseURL: "https://keysystem-b5fa5-default-rtdb.firebaseio.com/",
+            projectId: "keysystem-b5fa5",
+            appId: "1:898842570370:web:6987aeb9e3e50168e20e9b"
+        };
+
+        // 2. WAIT FOR PAGE LOAD
+        document.addEventListener('DOMContentLoaded', () => {
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.database();
+            
+            const display = document.getElementById('key-display');
+            const status = document.getElementById('status-msg');
+            const container = document.getElementById('container');
+
+            async function pullAndPurge() {
+                try {
+                    const availRef = db.ref('vault/available_keys');
+                    const pendingRef = db.ref('vault/pending_redemption');
+
+                    // Pull the first key
+                    const snapshot = await availRef.limitToFirst(1).once('value');
+                    
+                    if (snapshot.exists()) {
+                        const id = Object.keys(snapshot.val())[0];
+                        const code = snapshot.val()[id].code;
+
+                        // Display the key
+                        display.innerText = code;
+                        status.innerText = "Key retrieved. Purging from vault...";
+
+                        // MOVE LOGIC: To pending, then remove from available
+                        await pendingRef.push({ 
+                            code: code, 
+                            claimed_at: Date.now(),
+                            origin: "web_portal"
+                        });
+                        await availRef.child(id).remove();
+                        
+                        status.innerText = "One-time use key active. Use Discord to redeem.";
+                    } else {
+                        // NO KEYS FOUND
+                        display.innerText = "VAULT EMPTY";
+                        status.innerText = "Request admin to run !gen in Discord.";
+                    }
+                } catch (err) {
+                    // CONNECTION OR PERMISSION ERROR
+                    display.innerText = "ERROR";
+                    container.classList.add('error');
+                    status.innerText = "Database connection failed: " + err.message;
+                    console.error(err);
+                }
+            }
+
+            pullAndPurge();
+        });
+    </script>
+</body>
+</html>
